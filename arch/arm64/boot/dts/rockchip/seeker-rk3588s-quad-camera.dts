@@ -1,0 +1,478 @@
+/dts-v1/;
+
+#include <dt-bindings/clock/rk3588-cru.h>
+#include "rk3588s-orangepi-cm5.dts"
+
+/ {
+	model = "Seeker RK3588S Quad Camera";
+	compatible = "seeker,rk3588s-quad-camera", "rockchip,rk3588s-orangepi-cm5", "rockchip,rk3588";
+
+	/delete-node/ gpio-keys;
+	/delete-node/ gpio-leds;
+	/delete-node/ vcc3v3-sys;
+
+	leds: gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_gpio>;
+		status = "okay";
+
+		status_led: led-0 {
+			label = "status_led";
+			gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			linux,default-trigger-delay-ms = <0>;
+		};
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm14 0 25000 0>;
+		default-brightness-level = <200>;
+		brightness-levels = <
+			  0  20  20  21  21  22  22  23  23  24  24  25  25  26  26  27
+			 27  28  28  29  29  30  30  31  31  32  32  33  33  34  34  35
+			 35  36  36  37  37  38  38  39  40  41  42  43  44  45  46  47
+			 48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63
+			 64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79
+			 80  81  82  83  84  85  86  87  88  89  90  91  92  93  94  95
+			 96  97  98  99 100 101 102 103 104 105 106 107 108 109 110 111
+			112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127
+			128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143
+			144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
+			160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175
+			176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191
+			192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207
+			208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223
+			224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239
+			240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
+		>;
+	};
+
+	camera-sync {
+		compatible = "v1,camera-trigger";
+		status = "okay";
+		cam_num = <4>;
+		cam0-gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_HIGH>;
+		cam1-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
+		cam2-gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_HIGH>;
+		cam3-gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&vcc5v0_host {
+	gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	pinctrl-0 = <&vcc5v0_host_en>;
+};
+
+&vcc5v0_host_en {
+	rockchip,pins = <4 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
+};
+
+/*
+ * GMAC1 MDIO/MDC uses GPIO3_C2/C3, which conflicts with the Seeker camera0
+ * I2C8 M4 route. Keep the SoC GMAC disabled so sc233hgs-0 can claim i2c8m4.
+ */
+&gmac1 {
+	status = "disabled";
+};
+
+&pinctrl {
+	leds {
+		led_gpio: led-gpio {
+			rockchip,pins = <4 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
+
+&pwm14 {
+	status = "okay";
+	pinctrl-names = "active";
+	pinctrl-0 = <&pwm14m1_pins>;
+};
+
+/*
+ * PWM15 M3 is GPIO1_D7, the same pin as MIPI camera4 MCLK. Keep it disabled
+ * on this quad-camera board so the fourth camera can claim mipim0_camera4_clk.
+ */
+&pwm15 {
+	status = "disabled";
+};
+
+&fan {
+	status = "disabled";
+};
+
+/* Camera path 0: i2c8 -> dcphy0 -> mipi0 -> cif0 -> rkisp1_vir0 */
+&csi2_dcphy0 {
+	status = "okay";
+};
+
+&mipidcphy0_in_ucam1 {
+	remote-endpoint = <&sc233hgs_out0>;
+	data-lanes = <1 2>;
+};
+
+&mipi0_csi2 {
+	status = "okay";
+};
+
+&csidcphy0_out {
+	remote-endpoint = <&mipi0_csi2_input>;
+};
+
+&mipi0_csi2_input {
+	remote-endpoint = <&csidcphy0_out>;
+};
+
+&mipi0_csi2_output {
+	remote-endpoint = <&cif_mipi_in0>;
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+};
+
+&cif_mipi_in0 {
+	remote-endpoint = <&mipi0_csi2_output>;
+};
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+};
+
+&mipi_lvds_sditf {
+	remote-endpoint = <&isp1_in1>;
+};
+
+&rkisp1_vir0 {
+	status = "okay";
+};
+
+&isp1_in1 {
+	remote-endpoint = <&mipi_lvds_sditf>;
+};
+
+/* Camera path 1: i2c3 -> dcphy1 -> mipi1 -> cif1 -> rkisp1_vir1 */
+&csi2_dcphy1 {
+	status = "okay";
+};
+
+&mipidcphy1_in_ucam1 {
+	remote-endpoint = <&sc233hgs_out1>;
+	data-lanes = <1 2>;
+};
+
+&mipi1_csi2 {
+	status = "okay";
+};
+
+&csidcphy1_out {
+	remote-endpoint = <&mipi1_csi2_input>;
+};
+
+&mipi1_csi2_input {
+	remote-endpoint = <&csidcphy1_out>;
+};
+
+&mipi1_csi2_output {
+	remote-endpoint = <&cif_mipi_in1>;
+};
+
+&rkcif_mipi_lvds1 {
+	status = "okay";
+};
+
+&cif_mipi_in1 {
+	remote-endpoint = <&mipi1_csi2_output>;
+};
+
+&rkcif_mipi_lvds1_sditf {
+	status = "okay";
+};
+
+&mipi1_lvds_sditf {
+	remote-endpoint = <&isp1_in0>;
+};
+
+&rkisp1_vir1 {
+	status = "okay";
+};
+
+&isp1_in0 {
+	remote-endpoint = <&mipi1_lvds_sditf>;
+};
+
+/* Camera path 2: i2c1 -> dphy1 -> mipi2 -> cif2 -> rkisp0_vir0 */
+&csi2_dphy1 {
+	status = "okay";
+};
+
+&mipidphy1_in_ucam1 {
+	remote-endpoint = <&sc233hgs_out2>;
+	data-lanes = <1 2>;
+};
+
+&mipi2_csi2 {
+	status = "okay";
+};
+
+&csidphy0_out {
+	remote-endpoint = <&mipi2_csi2_input>;
+};
+
+&mipi2_csi2_input {
+	remote-endpoint = <&csidphy0_out>;
+};
+
+&mipi2_csi2_output {
+	remote-endpoint = <&cif_mipi_in2>;
+};
+
+&rkcif_mipi_lvds2 {
+	status = "okay";
+};
+
+&cif_mipi_in2 {
+	remote-endpoint = <&mipi2_csi2_output>;
+};
+
+&rkcif_mipi_lvds2_sditf {
+	status = "okay";
+};
+
+&mipi2_lvds_sditf {
+	remote-endpoint = <&isp0_vir0>;
+};
+
+&rkisp0_vir0 {
+	status = "okay";
+};
+
+&isp0_vir0 {
+	remote-endpoint = <&mipi2_lvds_sditf>;
+};
+
+/* Camera path 3: i2c4 -> dphy2 -> mipi3 -> cif3 -> rkisp0_vir1 */
+&csi2_dphy2 {
+	status = "okay";
+};
+
+&mipidphy2_in_ucam1 {
+	remote-endpoint = <&sc233hgs_out3>;
+	data-lanes = <1 2>;
+};
+
+&mipi3_csi2 {
+	status = "okay";
+};
+
+&csidphy2_out {
+	remote-endpoint = <&mipi3_csi2_input>;
+};
+
+&mipi3_csi2_input {
+	remote-endpoint = <&csidphy2_out>;
+};
+
+&mipi3_csi2_output {
+	remote-endpoint = <&cif_mipi_in3>;
+};
+
+&rkcif_mipi_lvds3 {
+	status = "okay";
+};
+
+&cif_mipi_in3 {
+	remote-endpoint = <&mipi3_csi2_output>;
+};
+
+&rkcif_mipi_lvds3_sditf {
+	status = "okay";
+};
+
+&mipi3_lvds_sditf {
+	remote-endpoint = <&isp0_vir1>;
+};
+
+&rkisp0_vir1 {
+	status = "okay";
+};
+
+&isp0_vir1 {
+	remote-endpoint = <&mipi3_lvds_sditf>;
+};
+
+/*
+ * The CM5 camera templates keep disabled RPi camera endpoints wired to the
+ * same CSI input slots we repurpose here. Drop the unused OV5647 endpoints
+ * outright so Rockchip's async graph parsers only see the SC233HGS endpoint on
+ * each DPHY input.
+ */
+/delete-node/ &mipidcphy0_in_ucam0;
+/delete-node/ &mipidcphy1_in_ucam0;
+/delete-node/ &mipidphy1_in_ucam0;
+/delete-node/ &mipidphy2_in_ucam0;
+
+&ov5647_1 {
+	/delete-node/ port;
+};
+
+&ov5647_2 {
+	/delete-node/ port;
+};
+
+&ov5647_3 {
+	/delete-node/ port;
+};
+
+&ov5647_4 {
+	/delete-node/ port;
+};
+
+&imx219_1 {
+	/delete-node/ port;
+};
+
+&imx219_2 {
+	/delete-node/ port;
+};
+
+&imx219_3 {
+	/delete-node/ port;
+};
+
+&imx219_4 {
+	/delete-node/ port;
+};
+
+&{/i2c@feca0000} {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c8m4_xfer>;
+
+	sc233hgs_0: sc233hgs-0@30 {
+		compatible = "sc,sc233hgs";
+		reg = <0x30>;
+		status = "okay";
+		power-domains = <&power RK3588_PD_VI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipim0_camera3_clk>;
+		clocks = <&cru CLK_MIPI_CAMARAOUT_M3>;
+		clock-names = "xvclk";
+		rockchip,camera-module-name = "default";
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-lens-name = "default";
+		revert = <0>;
+
+		port {
+			sc233hgs_out0: endpoint {
+				data-lanes = <1 2>;
+				remote-endpoint = <&mipidcphy0_in_ucam1>;
+			};
+		};
+	};
+};
+
+&{/i2c@feab0000} {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3m0_xfer>;
+
+	sc233hgs_1: sc233hgs-1@30 {
+		compatible = "sc,sc233hgs";
+		reg = <0x30>;
+		status = "okay";
+		power-domains = <&power RK3588_PD_VI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipim0_camera4_clk>;
+		clocks = <&cru CLK_MIPI_CAMARAOUT_M4>;
+		clock-names = "xvclk";
+		rockchip,camera-module-name = "default";
+		rockchip,camera-module-index = <4>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-lens-name = "default";
+		revert = <0>;
+
+		port {
+			sc233hgs_out1: endpoint {
+				data-lanes = <1 2>;
+				remote-endpoint = <&mipidcphy1_in_ucam1>;
+			};
+		};
+	};
+};
+
+&{/i2c@fea90000} {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1m4_xfer>;
+
+	sc233hgs_2: sc233hgs-2@30 {
+		compatible = "sc,sc233hgs";
+		reg = <0x30>;
+		status = "okay";
+		power-domains = <&power RK3588_PD_VI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipim0_camera1_clk>;
+		clocks = <&cru CLK_MIPI_CAMARAOUT_M1>;
+		clock-names = "xvclk";
+		rockchip,camera-module-name = "default";
+		rockchip,camera-module-index = <2>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-lens-name = "default";
+		revert = <0>;
+
+		port {
+			sc233hgs_out2: endpoint {
+				data-lanes = <1 2>;
+				remote-endpoint = <&mipidphy1_in_ucam1>;
+			};
+		};
+	};
+};
+
+&{/i2c@feac0000} {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4m3_xfer>;
+
+	sc233hgs_3: sc233hgs-3@30 {
+		compatible = "sc,sc233hgs";
+		reg = <0x30>;
+		status = "okay";
+		power-domains = <&power RK3588_PD_VI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipim0_camera2_clk>;
+		clocks = <&cru CLK_MIPI_CAMARAOUT_M2>;
+		clock-names = "xvclk";
+		rockchip,camera-module-name = "default";
+		rockchip,camera-module-index = <3>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-lens-name = "default";
+		revert = <0>;
+
+		port {
+			sc233hgs_out3: endpoint {
+				data-lanes = <1 2>;
+				remote-endpoint = <&mipidphy2_in_ucam1>;
+			};
+		};
+	};
+};
+
+&{/spi@feb30000} {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi3m3_pins &spi3m3_cs0>;
+	num-cs = <1>;
+
+	icm20602@0 {
+		compatible = "rockchip,icm20602";
+		reg = <0>;
+		status = "okay";
+		spi-max-frequency = <1000000>;
+		irq-gpio = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
+	};
+};
